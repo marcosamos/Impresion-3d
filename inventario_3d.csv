@@ -1,0 +1,8 @@
+ID_Rollo,Nombre,Material,Gramos_Iniciales,Gramos_Actuales,Costo,Proveedor,Estado,Color
+R-001,PLA - Blanco (Mexico Makers),PLA,1000,1000,279.0,Mexico Makers,Activo,Blanco
+R-002,PLA - Blanco (Mexico Makers),PLA,1000,1000,279.0,Mexico Makers,Activo,Blanco
+R-003,PLA - Negro (Mexico Makers),PLA,1000,1000,279.0,Mexico Makers,Activo,Negro
+R-004,PLA - Negro (Mexico Makers),PLA,1000,1000,279.0,Mexico Makers,Activo,Negro
+R-005,PLA - Amarillo (Mexico Makers),PLA,1000,1000,279.0,Mexico Makers,Activo,Amarillo
+R-006,PETG - Gris (Bambu Lab),PETG,1000,1000,259.0,Mexico Makers,Activo,Gris
+R-007,PLA - Rojo (Xingtongzhilian),PLA,1000,1000,289.0,Amazon,Activo,Rojo
