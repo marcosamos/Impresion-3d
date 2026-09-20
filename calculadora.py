@@ -20,7 +20,7 @@ def mostrar_calculadora():
       )
     with c2:
       peso_pieza_g = st.number_input(
-          "Peso de la pieza (g)", min_value=0.1, value=00.0, step=5.0
+          "Peso de la pieza (g)", min_value=0.1, value=50.0, step=5.0
       )
     costo_material = (precio_rollo / peso_rollo_g) * peso_pieza_g
 
