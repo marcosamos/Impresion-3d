@@ -13,14 +13,14 @@ def mostrar_calculadora():
     c1, c2 = st.columns(2)
     with c1:
       precio_rollo = st.number_input(
-          "Precio del rollo ($ MXN)", min_value=0.0, value=450.0, step=20.0
+          "Precio del rollo ($ MXN)", min_value=0.0, value=300.0, step=20.0
       )
       peso_rollo_g = st.number_input(
           "Peso del rollo (g)", min_value=1.0, value=1000.0, step=50.0
       )
     with c2:
       peso_pieza_g = st.number_input(
-          "Peso de la pieza (g)", min_value=0.1, value=50.0, step=5.0
+          "Peso de la pieza (g)", min_value=0.1, value=00.0, step=5.0
       )
     costo_material = (precio_rollo / peso_rollo_g) * peso_pieza_g
 
@@ -55,11 +55,11 @@ def mostrar_calculadora():
           "Minutos de post-proceso", min_value=0.0, value=15.0, step=5.0
       )
       valor_hora_hombre = st.number_input(
-          "Valor de tu hora ($ MXN)", min_value=0.0, value=80.0, step=10.0
+          "Valor de tu hora ($ MXN)", min_value=0.0, value=20.0, step=10.0
       )
     with c6:
       depreciacion_hora = st.number_input(
-          "Desgaste de máquina/h ($ MXN)", min_value=0.0, value=5.00, step=1.00
+          "Desgaste de máquina/h ($ MXN)", min_value=0.0, value=2.00, step=1.00
       )
       margen_fallo = st.slider(
           "Margen por riesgo o fallo (%)", 0.0, 30.0, 10.0, step=1.0
