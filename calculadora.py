@@ -139,10 +139,16 @@ def mostrar_calculadora():
     )
     st.markdown(f"### 🏷️ Precio Sugerido: **${precio_final:.2f} MXN**")
 
-    # Retornamos los datos calculados para poder usarlos al registrar la venta si se requiere
+    # Retornamos el desglose completo para las ventas
     return {
         "costo_produccion": round(costo_produccion, 2),
-        "precio_final": round(precio_final, 2),
+        "costo_material": round(costo_material, 2),
+        "costo_electricidad": round(costo_electricidad, 2),
+        "costo_mano_obra": round(costo_mano_obra, 2),
+        "costo_depreciacion": round(costo_depreciacion, 2),
+        "costo_extras": round(costo_total_extras, 2),
+        "horas_impresion": round(tiempo_total_horas, 2),
         "ganancia_neta": round(ganancia_neta, 2),
+        "precio_final": round(precio_final, 2),
     }
   return None
