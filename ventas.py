@@ -251,8 +251,8 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
   df_ventas = cargar_ventas()
 
   if not df_ventas.empty:
-    total_ingresos = df_ventas["Total"].sum()
-    total_ingresos = float(total_ingresos) if pd.notna(total_ingresos) else 0.0
+    df_ventas["Total"] = pd.to_numeric(df_ventas["Total"], errors="coerce").fillna(0.0)
+    total_ingresos = float(df_ventas["Total"].sum())
 
     m1, m2 = st.columns(2)
     m1.metric("📦 Ventas Totales", f"{len(df_ventas)}")
