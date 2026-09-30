@@ -238,6 +238,6 @@ def mostrar_modulo_compras():
           st.success(f"Compra {folio_compra_borrar} eliminada correctamente.")
           st.rerun()
         except Exception as e:
-          st.error(f"Detalle del error de Supabase: {e}")
+          st.error(f"Error completo: {e.args}")
   else:
     st.info("Aún no tienes compras o gastos registrados.")
