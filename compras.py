@@ -231,10 +231,13 @@ def mostrar_modulo_compras():
           key="del_compra_sel",
       )
       if st.button("Eliminar esta compra"):
-        supabase.table("compras").delete().eq(
-            "Folio", folio_compra_borrar
-        ).execute()
-        st.success(f"Compra {folio_compra_borrar} eliminada correctamente.")
-        st.rerun()
+        try:
+          supabase.table("compras").delete().eq(
+              "Folio", folio_compra_borrar
+          ).execute()
+          st.success(f"Compra {folio_compra_borrar} eliminada correctamente.")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Detalle del error de Supabase: {e}")
   else:
     st.info("Aún no tienes compras o gastos registrados.")
