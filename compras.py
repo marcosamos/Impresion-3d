@@ -232,10 +232,10 @@ def mostrar_modulo_compras():
       )
       if st.button("Eliminar esta compra"):
         try:
-          supabase.table("compras").delete().eq(
-              "Folio", folio_compra_borrar
-          ).execute()
-          st.success(f"Compra {folio_compra_borrar} eliminada correctamente.")
+          # Limpiamos el valor por si trae algún espacio extra y usamos filter
+          folio_limpio = str(folio_compra_borrar).strip()
+          supabase.table("compras").delete().filter("Folio", "eq", folio_limpio).execute()
+          st.success(f"Compra {folio_limpio} eliminada correctamente.")
           st.rerun()
         except Exception as e:
           st.error(f"Error completo: {e.args}")
