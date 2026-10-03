@@ -45,19 +45,51 @@ def cargar_inventario():
     return pd.DataFrame()
 
 
+def cargar_catalogo():
+  response = supabase.table("catalogo_productos").select("*").execute()
+  data = response.data
+  if data:
+    return pd.DataFrame(data)
+  else:
+    return pd.DataFrame()
+
+
 def mostrar_modulo_ventas(ultimo_calculo=None):
   st.title("📊 Historial y Control de Ventas")
   st.write(
-      "Registra tus pedidos. Si usas varios colores o rollos, puedes añadirlos"
-      " todos a la venta y el sistema descontará el stock de cada uno."
+      "Registra tus pedidos. Puedes cargar productos desde tu catálogo o usar"
+      " la calculadora, y añadir los rollos gastados para descontar el stock."
   )
 
   if "materiales_venta" not in st.session_state:
     st.session_state.materiales_venta = []
 
   df_inv = cargar_inventario()
+  df_cat = cargar_catalogo()
 
   st.subheader("Registrar Nueva Venta")
+
+  # --- 0. OPCIONAL: CARGAR DESDE EL CATÁLOGO ---
+  producto_seleccionado_cat = None
+  if not df_cat.empty:
+    st.markdown("### 🏷️ 0. Carga Rápida desde el Catálogo (Opcional)")
+    nombres_cat = ["-- Selecciona un producto del catálogo --"] + df_cat[
+        "nombre_producto"
+    ].tolist()
+    elegido_cat = st.selectbox(
+        "Selecciona plantilla de producto", nombres_cat, key="select_cat_venta"
+    )
+
+    if elegido_cat != "-- Selecciona un producto del catálogo --":
+      producto_seleccionado_cat = df_cat[
+          df_cat["nombre_producto"] == elegido_cat
+      ].iloc[0]
+      st.info(
+          f"💡 Plantilla cargada: **{producto_seleccionado_cat['nombre_producto']}**"
+          f" — Precio sugerido: ${producto_seleccionado_cat.get('precio_sugerido', 0)}"
+      )
+
+  st.markdown("---")
 
   # --- 1. SECCIÓN DE MÚLTIPLES ROLLOS (CONSUMO MULTICOLOR) ---
   st.markdown("### 🧵 1. Filamentos Utilizados en este Pedido")
@@ -85,10 +117,19 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
           ),
       )
     with col_sel2:
+      # Si el catálogo tiene peso sugerido, lo usamos por defecto en el number_input
+      peso_default_sugerido = (
+          float(producto_seleccionado_cat.get("peso_gramos_sugerido", 30.0))
+          if producto_seleccionado_cat is not None
+          else 30.0
+      )
+      if peso_default_sugerido <= 0:
+        peso_default_sugerido = 30.0
+
       gramos_parciales = st.number_input(
           "Gramos gastados de este rollo",
           min_value=1.0,
-          value=30.0,
+          value=peso_default_sugerido,
           step=5.0,
       )
     with col_sel3:
@@ -133,22 +174,38 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
     st.markdown("### 📝 2. Datos del Cliente y Cobro")
     c1, c2 = st.columns(2)
 
+    # Definir valores por defecto basados en catálogo o calculadora
+    default_producto = ""
+    if producto_seleccionado_cat is not None:
+      default_producto = producto_seleccionado_cat.get("nombre_producto", "")
+    elif ultimo_calculo and isinstance(ultimo_calculo, dict):
+      default_producto = ultimo_calculo.get("producto", "")
+
+    default_precio = 0.0
+    if producto_seleccionado_cat is not None:
+      default_precio = float(
+          producto_seleccionado_cat.get("precio_sugerido", 0.0)
+      )
+    elif ultimo_calculo and isinstance(ultimo_calculo, dict):
+      default_precio = float(ultimo_calculo.get("precio_final", 0.0))
+
     with c1:
       cliente = st.text_input("Nombre del Cliente")
       producto = st.text_input(
-          "Producto / Pieza vendida",
-          value=(
-              ultimo_calculo.get("producto", "")
-              if ultimo_calculo and isinstance(ultimo_calculo, dict)
-              else ""
-          ),
+          "Producto / Pieza vendida", value=default_producto
       )
     with c2:
       gramos_acumulados_calc = sum(
           item["Gramos"] for item in st.session_state.materiales_venta
       )
-      if gramos_acumulados_calc == 0 and ultimo_calculo and isinstance(
-          ultimo_calculo, dict
+      if gramos_acumulados_calc == 0 and producto_seleccionado_cat is not None:
+        gramos_acumulados_calc = float(
+            producto_seleccionado_cat.get("peso_gramos_sugerido", 50.0)
+        )
+      elif (
+          gramos_acumulados_calc == 0
+          and ultimo_calculo
+          and isinstance(ultimo_calculo, dict)
       ):
         gramos_acumulados_calc = ultimo_calculo.get("gramos", 50.0)
       elif gramos_acumulados_calc == 0:
@@ -158,19 +215,16 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
           "Gramos Totales Acumulados", f"{gramos_acumulados_calc:,.1f} g"
       )
 
-      precio_sugerido = (
-          ultimo_calculo.get("precio_final", 0.0)
-          if ultimo_calculo and isinstance(ultimo_calculo, dict)
-          else 0.0
-      )
       total_venta = st.number_input(
           "Precio Final Cobrado ($ MXN)",
           min_value=0.0,
-          value=float(precio_sugerido),
+          value=default_precio,
           step=10.0,
       )
 
-    btn_guardar_venta = st.form_submit_button("Confirmar Venta y Descontar Stock")
+    btn_guardar_venta = st.form_submit_button(
+        "Confirmar Venta y Descontar Stock"
+    )
 
     if btn_guardar_venta:
       if cliente and producto and total_venta > 0:
@@ -186,7 +240,6 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
         else:
           desc_rollos = "Ninguno"
 
-        # Extraemos el desglose del último cálculo con seguridad
         calc = (
             ultimo_calculo
             if ultimo_calculo and isinstance(ultimo_calculo, dict)
@@ -199,7 +252,7 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
             "Cliente": cliente,
             "Producto": producto,
             "Costo_Produccion": calc.get("costo_produccion", 0.0),
-            "Precio_Venta": calc.get("precio_final", 0.0),
+            "Precio_Venta": total_venta,
             "Ganancia_Neta": calc.get("ganancia_neta", 0.0),
             "Estatus": "Completado",
             "Gramos": gramos_acumulados_calc,
@@ -251,7 +304,9 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
   df_ventas = cargar_ventas()
 
   if not df_ventas.empty:
-    df_ventas["Total"] = pd.to_numeric(df_ventas["Total"], errors="coerce").fillna(0.0)
+    df_ventas["Total"] = pd.to_numeric(
+        df_ventas["Total"], errors="coerce"
+    ).fillna(0.0)
     total_ingresos = float(df_ventas["Total"].sum())
 
     m1, m2 = st.columns(2)
