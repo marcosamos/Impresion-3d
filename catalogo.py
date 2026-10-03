@@ -26,12 +26,14 @@ def mostrar_modulo_catalogo(supabase: Client):
       else:
         for prod in productos:
           with st.expander(
-              f"🏷️ {prod['nombre_producto']} — Precio: ${prod.get('precio_sugerido', 0)}"
+              f"🏷️ {prod['nombre_producto']} — Precio:"
+              f" ${prod.get('precio_sugerido', 0)}"
           ):
             col1, col2 = st.columns(2)
             with col1:
               st.write(
-                  f"**Material Sugerido:** {prod.get('material_sugerido', 'N/A')}"
+                  f"**Material Sugerido:**"
+                  f" {prod.get('material_sugerido', 'N/A')}"
               )
               st.write(
                   f"**Color Sugerido:** {prod.get('color_sugerido', 'N/A')}"
@@ -46,6 +48,7 @@ def mostrar_modulo_catalogo(supabase: Client):
               )
               if prod.get("imagen_url"):
                 st.write(f"**Imagen/URL:** {prod.get('imagen_url')}")
+
             # Botón para eliminar del catálogo
             if st.button(
                 f"🗑️ Eliminar '{prod['nombre_producto']}'", key=f"del_{prod['id']}"

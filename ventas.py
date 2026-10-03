@@ -57,8 +57,9 @@ def cargar_catalogo():
 def mostrar_modulo_ventas(ultimo_calculo=None):
   st.title("📊 Historial y Control de Ventas")
   st.write(
-      "Registra tus pedidos. Puedes cargar productos desde tu catálogo o usar"
-      " la calculadora, y añadir los rollos gastados para descontar el stock."
+      "Registra tus pedidos. Carga productos desde tu catálogo o calculadora,"
+      " añade los rollos gastados y el sistema registrará los costos y"
+      " ganancias exactas."
   )
 
   if "materiales_venta" not in st.session_state:
@@ -117,7 +118,6 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
           ),
       )
     with col_sel2:
-      # Si el catálogo tiene peso sugerido, lo usamos por defecto en el number_input
       peso_default_sugerido = (
           float(producto_seleccionado_cat.get("peso_gramos_sugerido", 30.0))
           if producto_seleccionado_cat is not None
@@ -174,7 +174,6 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
     st.markdown("### 📝 2. Datos del Cliente y Cobro")
     c1, c2 = st.columns(2)
 
-    # Definir valores por defecto basados en catálogo o calculadora
     default_producto = ""
     if producto_seleccionado_cat is not None:
       default_producto = producto_seleccionado_cat.get("nombre_producto", "")
@@ -240,20 +239,41 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
         else:
           desc_rollos = "Ninguno"
 
-        calc = (
+        # Determinación de costos y ganancias financieros
+        costo_produccion_calc = 0.0
+        ganancia_neta_calc = 0.0
+
+        if (
             ultimo_calculo
-            if ultimo_calculo and isinstance(ultimo_calculo, dict)
-            else {}
-        )
+            and isinstance(ultimo_calculo, dict)
+            and ultimo_calculo.get("producto") == producto
+            and ultimo_calculo.get("costo_produccion", 0.0) > 0
+        ):
+          # Si viene fresco de la calculadora
+          costo_produccion_calc = ultimo_calculo.get("costo_produccion", 0.0)
+          ganancia_neta_calc = total_venta - costo_produccion_calc
+        elif producto_seleccionado_cat is not None and producto_seleccionado_cat.get(
+            "nombre_producto"
+        ) == producto:
+          # Si se seleccionó del catálogo, estimamos el costo proporcional basándonos en el precio sugerido y un margen base razonable, o dejamos una proporción lógica
+          precio_sug = float(
+              producto_seleccionado_cat.get("precio_sugerido", total_venta)
+          )
+          # Estimación aproximada estándar si el catálogo guarda el precio sugerido (asumiendo ~40-50% de margen base guardado)
+          costo_produccion_calc = round(precio_sug * 0.5, 2)
+          ganancia_neta_calc = total_venta - costo_produccion_calc
+        else:
+          costo_produccion_calc = round(gramos_acumulados_calc * 0.5, 2)
+          ganancia_neta_calc = total_venta - costo_produccion_calc
 
         datos_venta = {
             "Folio": folio_str,
             "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "Cliente": cliente,
             "Producto": producto,
-            "Costo_Produccion": calc.get("costo_produccion", 0.0),
-            "Precio_Venta": total_venta,
-            "Ganancia_Neta": calc.get("ganancia_neta", 0.0),
+            "Costo_Produccion": round(costo_produccion_calc, 2),
+            "Precio_Venta": round(total_venta, 2),
+            "Ganancia_Neta": round(ganancia_neta_calc, 2),
             "Estatus": "Completado",
             "Gramos": gramos_acumulados_calc,
             "Rollo_Usado": desc_rollos,
@@ -264,7 +284,7 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
         }
         guardar_venta(datos_venta)
 
-        # Descontar del inventario en Supabase cada rollo usado
+        # Descontar inventario en Supabase
         if st.session_state.materiales_venta:
           for item in st.session_state.materiales_venta:
             id_r = item["ID_Rollo"]

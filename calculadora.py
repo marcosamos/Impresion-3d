@@ -1,7 +1,8 @@
 import streamlit as st
+from supabase import Client
 
 
-def mostrar_calculadora():
+def mostrar_calculadora(supabase: Client = None):
   st.title("🧮 Calculadora de Precios de Impresión 3D")
   st.write("Calcula tus costos reales y define tu precio de venta rentable.")
 
@@ -139,8 +140,48 @@ def mostrar_calculadora():
     )
     st.markdown(f"### 🏷️ Precio Sugerido: **${precio_final:.2f} MXN**")
 
-    # Retornamos el desglose completo para las ventas
+    st.markdown("---")
+    st.subheader("💾 Guardar en el Catálogo")
+    with st.form("form_guardar_catalogo_desde_calc"):
+      nombre_catalogo = st.text_input(
+          "Nombre para guardar en el Catálogo", value=""
+      )
+      material_cat = st.text_input("Material sugerido (ej. PLA)", value="PLA")
+      color_cat = st.text_input("Color sugerido (ej. Negro)", value="Genérico")
+
+      btn_guardar_cat = st.form_submit_button(
+          "➕ Guardar este producto en el Catálogo"
+      )
+
+      if btn_guardar_cat:
+        if not nombre_catalogo:
+          st.error("Por favor ingresa un nombre para el producto.")
+        elif supabase is None:
+          st.error("No hay conexión con Supabase configurada.")
+        else:
+          try:
+            nuevo_item_cat = {
+                "nombre_producto": nombre_catalogo,
+                "material_sugerido": material_cat,
+                "color_sugerido": color_cat,
+                "peso_gramos_sugerido": round(peso_pieza_g, 2),
+                "tiempo_horas_sugerido": round(tiempo_total_horas, 2),
+                "precio_sugerido": round(precio_final, 2),
+            }
+            supabase.table("catalogo_productos").insert(
+                nuevo_item_cat
+            ).execute()
+            st.success(
+                f"¡'{nombre_catalogo}' guardado en el catálogo con éxito!"
+            )
+          except Exception as e:
+            st.error(f"Error al guardar en el catálogo: {e}")
+
+    # Preparamos el diccionario de retorno por si se usa en ventas
     return {
+        "producto": (
+            nombre_catalogo if "nombre_catalogo" in locals() else ""
+        ),
         "costo_produccion": round(costo_produccion, 2),
         "costo_material": round(costo_material, 2),
         "costo_electricidad": round(costo_electricidad, 2),
@@ -150,5 +191,6 @@ def mostrar_calculadora():
         "horas_impresion": round(tiempo_total_horas, 2),
         "ganancia_neta": round(ganancia_neta, 2),
         "precio_final": round(precio_final, 2),
+        "gramos": round(peso_pieza_g, 2),
     }
   return None
