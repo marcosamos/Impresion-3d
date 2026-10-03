@@ -88,7 +88,7 @@ else:
     st.session_state.ultimo_calculo = None
 
   if menu == "🧮 Calculadora de Precios":
-    resultado = mostrar_calculadora()
+    resultado = mostrar_calculadora(supabase)
     if resultado:
       st.session_state.ultimo_calculo = resultado
 
