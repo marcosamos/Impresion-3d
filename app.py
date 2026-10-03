@@ -1,4 +1,5 @@
 from calculadora import mostrar_calculadora
+from catalogo import mostrar_modulo_catalogo
 from compras import mostrar_modulo_compras
 from inventario import mostrar_modulo_inventario
 from ventas import mostrar_modulo_ventas
@@ -79,6 +80,7 @@ else:
           "📊 Historial y Control de Ventas",
           "🛒 Control de Compras",
           "📦 Control de Inventario",
+          "📦 Catálogo de Productos",
       ],
   )
 
@@ -98,3 +100,6 @@ else:
 
   elif menu == "📦 Control de Inventario":
     mostrar_modulo_inventario()
+
+  elif menu == "📦 Catálogo de Productos":
+    mostrar_modulo_catalogo(supabase)
