@@ -57,11 +57,11 @@ def cargar_catalogo():
 def mostrar_modulo_ventas(ultimo_calculo=None):
   st.title("📊 Historial y Control de Ventas")
   st.write(
-      "Registra tus pedidos. Añade múltiples productos al carrito, selecciona"
-      " los rollos gastados y registra ventas completas de manera agrupada."
+      "Registra tus pedidos. Ve armando tu carrito de productos y filamentos,"
+      " ajusta lo necesario y confirma la venta cuando esté lista."
   )
 
-  # Inicializar estados de sesión para carrito de productos y materiales
+  # Inicializar estados de sesión
   if "materiales_venta" not in st.session_state:
     st.session_state.materiales_venta = []
   if "productos_venta" not in st.session_state:
@@ -70,15 +70,12 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
   df_inv = cargar_inventario()
   df_cat = cargar_catalogo()
 
-  st.subheader("Registrar Nueva Venta (Múltiples Productos)")
+  st.subheader("🛒 1. Armar Carrito de Productos")
 
-  # --- 0. CARRITO DE PRODUCTOS (NUEVO) ---
-  st.markdown("### 🛒 0. Productos del Pedido")
-
+  # --- SECCIÓN PARA AGREGAR PRODUCTOS UNO A UNO ---
   with st.container():
     col_p1, col_p2, col_p3, col_p4 = st.columns([2, 1, 1, 1])
 
-    # Opciones para cargar rápido
     opciones_catalogo = ["-- Escribir libre o elegir del catálogo --"]
     if not df_cat.empty:
       opciones_catalogo += df_cat["nombre_producto"].tolist()
@@ -90,7 +87,6 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
           key="sel_prod_carrito",
       )
 
-      # Definir valores por defecto basados en catálogo o último cálculo
       def_nombre = ""
       def_precio = 0.0
       def_gramos = 30.0
@@ -128,7 +124,7 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
     with col_p4:
       st.text("")
       st.text("")
-      btn_agregar_carrito = st.button("➕ Añadir a la venta")
+      btn_agregar_carrito = st.button("➕ Añadir al carrito")
 
     if btn_agregar_carrito:
       if nombre_prod_input and precio_unit_input >= 0:
@@ -146,31 +142,33 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
       else:
         st.error("Indica un nombre de producto válido y un precio.")
 
-    # Mostrar tabla del carrito de productos
+    # Mostrar tabla del carrito actual
+    total_calculado_carrito = 0.0
     if st.session_state.productos_venta:
-      st.markdown("**Productos en este ticket:**")
+      st.markdown("**Productos en este ticket actual:**")
       df_carrito = pd.DataFrame(st.session_state.productos_venta)
       st.dataframe(df_carrito, use_container_width=True)
 
-      col_Tot1, col_Tot2 = st.columns(2)
       total_calculado_carrito = sum(
           item["Subtotal"] for item in st.session_state.productos_venta
       )
-      col_Tot1.metric("💰 Total del Pedido", f"${total_calculado_carrito:,.2f}")
+      st.metric(
+          "💰 Subtotal del Carrito", f"${total_calculado_carrito:,.2f} MXN"
+      )
 
       if st.button("🗑️ Vaciar carrito de productos"):
         st.session_state.productos_venta = []
         st.rerun()
     else:
       st.info(
-          "🛒 El carrito está vacío. Agrega al menos un producto para"
-          " continuar."
+          "🛒 El carrito está vacío. Agrega tus productos uno a uno (ej. el"
+          " honguito y luego el tubo verde)."
       )
 
   st.markdown("---")
 
-  # --- 1. SECCIÓN DE MÚLTIPLES ROLLOS (CONSUMO MULTICOLOR) ---
-  st.markdown("### 🧵 1. Filamentos Utilizados en este Pedido")
+  # --- SECCIÓN DE FILAMENTOS ---
+  st.subheader("🧵 2. Filamentos Utilizados")
 
   rollos_disponibles = []
   if not df_inv.empty:
@@ -195,7 +193,6 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
           ),
       )
     with col_sel2:
-      # Sugerir gramos basados en los productos agregados al carrito si existen
       sugerencia_gramos_totales = sum(
           item["Gramos_Estimados"] for item in st.session_state.productos_venta
       )
@@ -211,7 +208,7 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
     with col_sel3:
       st.text("")
       st.text("")
-      btn_agregar_material = st.button("➕ Añadir filamento")
+      btn_agregar_material = st.button("➕ Añadir filamento gastado")
 
     if btn_agregar_material:
       nombre_rollo_str = df_inv[df_inv["ID_Rollo"] == rollo_elegido][
@@ -222,139 +219,129 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
           "Nombre_Rollo": nombre_rollo_str,
           "Gramos": gramos_parciales,
       })
-      st.success(
-          f"Añadidos {gramos_parciales}g del rollo {rollo_elegido} al pedido."
-      )
+      st.success(f"Añadidos {gramos_parciales}g del rollo {rollo_elegido}.")
       st.rerun()
 
     if st.session_state.materiales_venta:
-      st.markdown("**Materiales agregados a esta venta:**")
+      st.markdown("**Materiales agregados:**")
       df_temp_mat = pd.DataFrame(st.session_state.materiales_venta)
       st.dataframe(df_temp_mat, use_container_width=True)
 
-      if st.button("🗑️ Limpiar lista de materiales"):
+      if st.button("🗑️ Limpiar lista de filamentos"):
         st.session_state.materiales_venta = []
         st.rerun()
     else:
       st.info(
-          "Aún no agregas ningún rollo. Selecciona los rollos y gramos que"
-          " gastó la impresión."
+          "Aún no registras filamentos gastados. Añade los rollos que ocupó el"
+          " trabajo."
       )
   else:
-    st.warning("⚠️ No hay rollos activos en el inventario para seleccionar.")
+    st.warning("⚠️ No hay rollos activos en el inventario.")
 
   st.markdown("---")
 
-  # --- 2. FORMULARIO DE DATOS DE LA VENTA ---
-  with st.form("form_registrar_venta"):
-    st.markdown("### 📝 2. Datos del Cliente y Finalizar Venta")
-    c1, c2 = st.columns(2)
+  # --- SECCIÓN FINAL: CLIENTE Y CONFIRMACIÓN DE VENTA ---
+  st.subheader("📝 3. Datos del Cliente y Confirmación")
 
-    with c1:
-      cliente = st.text_input("Nombre del Cliente")
-
-    with c2:
-      gramos_acumulados_calc = sum(
-          item["Gramos"] for item in st.session_state.materiales_venta
-      )
-      st.metric(
-          "Gramos Totales Acumulados", f"{gramos_acumulados_calc:,.1f} g"
-      )
-
-      # El total se toma por defecto del carrito creado arriba
-      total_sugerido_carrito = sum(
-          item["Subtotal"] for item in st.session_state.productos_venta
-      )
-      total_venta = st.number_input(
-          "Precio Final Cobrado ($ MXN)",
-          min_value=0.0,
-          value=float(total_sugerido_carrito),
-          step=10.0,
-      )
-
-    btn_guardar_venta = st.form_submit_button(
-        "Confirmar Venta y Descontar Stock"
+  c_cli1, c_cli2 = st.columns(2)
+  with c_cli1:
+    cliente = st.text_input("Nombre del Cliente (ej. Eduardo)")
+  with c_cli2:
+    gramos_acumulados_calc = sum(
+        item["Gramos"] for item in st.session_state.materiales_venta
     )
+    st.metric("Gramos Totales Gastados", f"{gramos_acumulados_calc:,.1f} g")
 
-    if btn_guardar_venta:
-      if cliente and st.session_state.productos_venta and total_venta >= 0:
-        df_ventas = cargar_ventas()
-        nuevo_folio = len(df_ventas) + 1
-        folio_str = f"V-{nuevo_folio:03d}"
+  # Permitir ajustar el precio final total si se desea aplicar descuento o ajuste
+  total_venta = st.number_input(
+      "Precio Final Total Cobrado ($ MXN)",
+      min_value=0.0,
+      value=float(total_calculado_carrito),
+      step=10.0,
+  )
 
-        # Consolidar nombres de productos en una cadena legible para el registro histórico
-        productos_str = ", ".join([
-            f"{p['Cantidad']}x {p['Producto']}"
-            for p in st.session_state.productos_venta
+  st.markdown("")
+  if st.button(
+      "🚀 Confirmar Venta y Descontar Stock",
+      type="primary",
+      use_container_width=True,
+  ):
+    if cliente and st.session_state.productos_venta and total_venta >= 0:
+      df_ventas = cargar_ventas()
+      nuevo_folio = len(df_ventas) + 1
+      folio_str = f"V-{nuevo_folio:03d}"
+
+      productos_str = ", ".join([
+          f"{p['Cantidad']}x {p['Producto']}"
+          for p in st.session_state.productos_venta
+      ])
+
+      if st.session_state.materiales_venta:
+        desc_rollos = ", ".join([
+            f"{m['ID_Rollo']} ({m['Gramos']}g)"
+            for m in st.session_state.materiales_venta
         ])
-
-        if st.session_state.materiales_venta:
-          desc_rollos = ", ".join([
-              f"{m['ID_Rollo']} ({m['Gramos']}g)"
-              for m in st.session_state.materiales_venta
-          ])
-        else:
-          desc_rollos = "Ninguno"
-
-        # Cálculo estimado de costos y ganancias
-        costo_produccion_calc = round(gramos_acumulados_calc * 0.5, 2)
-        ganancia_neta_calc = total_venta - costo_produccion_calc
-
-        datos_venta = {
-            "Folio": folio_str,
-            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "Cliente": cliente,
-            "Producto": productos_str,
-            "Costo_Produccion": round(costo_produccion_calc, 2),
-            "Precio_Venta": round(total_venta, 2),
-            "Ganancia_Neta": round(ganancia_neta_calc, 2),
-            "Estatus": "Completado",
-            "Gramos": gramos_acumulados_calc,
-            "Rollo_Usado": desc_rollos,
-            "Total": round(total_venta, 2),
-            "Estado": "Completado",
-            "Gramos_Totales": gramos_acumulados_calc,
-            "Rollos_Usados": desc_rollos,
-        }
-        guardar_venta(datos_venta)
-
-        # Descontar inventario en Supabase
-        if st.session_state.materiales_venta:
-          for item in st.session_state.materiales_venta:
-            id_r = item["ID_Rollo"]
-            g_gasto = item["Gramos"]
-
-            res = (
-                supabase.table("inventario")
-                .select("Gramos_Actuales, Estado")
-                .eq("ID_Rollo", id_r)
-                .execute()
-            )
-            if res.data:
-              actuales = float(res.data[0]["Gramos_Actuales"])
-              nuevo_total = max(0.0, actuales - g_gasto)
-              nuevo_estado = (
-                  "Terminado" if nuevo_total <= 0 else res.data[0]["Estado"]
-              )
-
-              supabase.table("inventario").update({
-                  "Gramos_Actuales": nuevo_total,
-                  "Estado": nuevo_estado,
-              }).eq("ID_Rollo", id_r).execute()
-
-        # Limpiar estados tras guardar con éxito
-        st.session_state.materiales_venta = []
-        st.session_state.productos_venta = []
-        st.success(
-            f"¡Venta múltiple {folio_str} registrada con éxito y stock"
-            " descontado!"
-        )
-        st.rerun()
       else:
-        st.error(
-            "Por favor escribe el nombre del cliente y asegúrate de agregar"
-            " al menos un producto al carrito."
-        )
+        desc_rollos = "Ninguno"
+
+      costo_produccion_calc = round(gramos_acumulados_calc * 0.5, 2)
+      ganancia_neta_calc = total_venta - costo_produccion_calc
+
+      datos_venta = {
+          "Folio": folio_str,
+          "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+          "Cliente": cliente,
+          "Producto": productos_str,
+          "Costo_Produccion": round(costo_produccion_calc, 2),
+          "Precio_Venta": round(total_venta, 2),
+          "Ganancia_Neta": round(ganancia_neta_calc, 2),
+          "Estatus": "Completado",
+          "Gramos": gramos_acumulados_calc,
+          "Rollo_Usado": desc_rollos,
+          "Total": round(total_venta, 2),
+          "Estado": "Completado",
+          "Gramos_Totales": gramos_acumulados_calc,
+          "Rollos_Usados": desc_rollos,
+      }
+      guardar_venta(datos_venta)
+
+      # Descontar inventario en Supabase
+      if st.session_state.materiales_venta:
+        for item in st.session_state.materiales_venta:
+          id_r = item["ID_Rollo"]
+          g_gasto = item["Gramos"]
+
+          res = (
+              supabase.table("inventario")
+              .select("Gramos_Actuales, Estado")
+              .eq("ID_Rollo", id_r)
+              .execute()
+          )
+          if res.data:
+            actuales = float(res.data[0]["Gramos_Actuales"])
+            nuevo_total = max(0.0, actuales - g_gasto)
+            nuevo_estado = (
+                "Terminado" if nuevo_total <= 0 else res.data[0]["Estado"]
+            )
+
+            supabase.table("inventario").update({
+                "Gramos_Actuales": nuevo_total,
+                "Estado": nuevo_estado,
+            }).eq("ID_Rollo", id_r).execute()
+
+      # Limpiar estados tras guardar con éxito
+      st.session_state.materiales_venta = []
+      st.session_state.productos_venta = []
+      st.success(
+          f"¡Venta múltiple {folio_str} registrada con éxito y stock"
+          " descontado!"
+      )
+      st.rerun()
+    else:
+      st.error(
+          "Por favor escribe el nombre del cliente y asegúrate de agregar"
+          " al menos un producto al carrito."
+      )
 
   st.markdown("---")
   st.subheader("📋 Historial de Ventas")
