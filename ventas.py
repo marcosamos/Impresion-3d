@@ -57,37 +57,114 @@ def cargar_catalogo():
 def mostrar_modulo_ventas(ultimo_calculo=None):
   st.title("📊 Historial y Control de Ventas")
   st.write(
-      "Registra tus pedidos. Carga productos desde tu catálogo o calculadora,"
-      " añade los rollos gastados y el sistema registrará los costos y"
-      " ganancias exactas."
+      "Registra tus pedidos. Añade múltiples productos al carrito, selecciona"
+      " los rollos gastados y registra ventas completas de manera agrupada."
   )
 
+  # Inicializar estados de sesión para carrito de productos y materiales
   if "materiales_venta" not in st.session_state:
     st.session_state.materiales_venta = []
+  if "productos_venta" not in st.session_state:
+    st.session_state.productos_venta = []
 
   df_inv = cargar_inventario()
   df_cat = cargar_catalogo()
 
-  st.subheader("Registrar Nueva Venta")
+  st.subheader("Registrar Nueva Venta (Múltiples Productos)")
 
-  # --- 0. OPCIONAL: CARGAR DESDE EL CATÁLOGO ---
-  producto_seleccionado_cat = None
-  if not df_cat.empty:
-    st.markdown("### 🏷️ 0. Carga Rápida desde el Catálogo (Opcional)")
-    nombres_cat = ["-- Selecciona un producto del catálogo --"] + df_cat[
-        "nombre_producto"
-    ].tolist()
-    elegido_cat = st.selectbox(
-        "Selecciona plantilla de producto", nombres_cat, key="select_cat_venta"
-    )
+  # --- 0. CARRITO DE PRODUCTOS (NUEVO) ---
+  st.markdown("### 🛒 0. Productos del Pedido")
 
-    if elegido_cat != "-- Selecciona un producto del catálogo --":
-      producto_seleccionado_cat = df_cat[
-          df_cat["nombre_producto"] == elegido_cat
-      ].iloc[0]
+  with st.container():
+    col_p1, col_p2, col_p3, col_p4 = st.columns([2, 1, 1, 1])
+
+    # Opciones para cargar rápido
+    opciones_catalogo = ["-- Escribir libre o elegir del catálogo --"]
+    if not df_cat.empty:
+      opciones_catalogo += df_cat["nombre_producto"].tolist()
+
+    with col_p1:
+      prod_elegido_cat = st.selectbox(
+          "Producto del catálogo (Opcional)",
+          opciones_catalogo,
+          key="sel_prod_carrito",
+      )
+
+      # Definir valores por defecto basados en catálogo o último cálculo
+      def_nombre = ""
+      def_precio = 0.0
+      def_gramos = 30.0
+
+      if prod_elegido_cat != "-- Escribir libre o elegir del catálogo --":
+        p_info = df_cat[df_cat["nombre_producto"] == prod_elegido_cat].iloc[0]
+        def_nombre = p_info["nombre_producto"]
+        def_precio = float(p_info.get("precio_sugerido", 0.0))
+        def_gramos = float(p_info.get("peso_gramos_sugerido", 30.0))
+      elif ultimo_calculo and isinstance(ultimo_calculo, dict):
+        def_nombre = ultimo_calculo.get("producto", "")
+        def_precio = float(ultimo_calculo.get("precio_final", 0.0))
+        def_gramos = float(ultimo_calculo.get("gramos", 30.0))
+
+      nombre_prod_input = st.text_input(
+          "Nombre del producto/pieza",
+          value=def_nombre,
+          key="input_nombre_prod",
+      )
+
+    with col_p2:
+      cantidad_prod = st.number_input(
+          "Cantidad", min_value=1, value=1, step=1, key="input_cant_prod"
+      )
+
+    with col_p3:
+      precio_unit_input = st.number_input(
+          "Precio Unitario ($)",
+          min_value=0.0,
+          value=def_precio,
+          step=10.0,
+          key="input_precio_prod",
+      )
+
+    with col_p4:
+      st.text("")
+      st.text("")
+      btn_agregar_carrito = st.button("➕ Añadir a la venta")
+
+    if btn_agregar_carrito:
+      if nombre_prod_input and precio_unit_input >= 0:
+        st.session_state.productos_venta.append({
+            "Producto": nombre_prod_input,
+            "Cantidad": int(cantidad_prod),
+            "Precio_Unitario": float(precio_unit_input),
+            "Subtotal": float(cantidad_prod * precio_unit_input),
+            "Gramos_Estimados": float(def_gramos * cantidad_prod),
+        })
+        st.success(
+            f"Añadido: {cantidad_prod}x {nombre_prod_input} al carrito."
+        )
+        st.rerun()
+      else:
+        st.error("Indica un nombre de producto válido y un precio.")
+
+    # Mostrar tabla del carrito de productos
+    if st.session_state.productos_venta:
+      st.markdown("**Productos en este ticket:**")
+      df_carrito = pd.DataFrame(st.session_state.productos_venta)
+      st.dataframe(df_carrito, use_container_width=True)
+
+      col_Tot1, col_Tot2 = st.columns(2)
+      total_calculado_carrito = sum(
+          item["Subtotal"] for item in st.session_state.productos_venta
+      )
+      col_Tot1.metric("💰 Total del Pedido", f"${total_calculado_carrito:,.2f}")
+
+      if st.button("🗑️ Vaciar carrito de productos"):
+        st.session_state.productos_venta = []
+        st.rerun()
+    else:
       st.info(
-          f"💡 Plantilla cargada: **{producto_seleccionado_cat['nombre_producto']}**"
-          f" — Precio sugerido: ${producto_seleccionado_cat.get('precio_sugerido', 0)}"
+          "🛒 El carrito está vacío. Agrega al menos un producto para"
+          " continuar."
       )
 
   st.markdown("---")
@@ -118,24 +195,23 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
           ),
       )
     with col_sel2:
-      peso_default_sugerido = (
-          float(producto_seleccionado_cat.get("peso_gramos_sugerido", 30.0))
-          if producto_seleccionado_cat is not None
-          else 30.0
+      # Sugerir gramos basados en los productos agregados al carrito si existen
+      sugerencia_gramos_totales = sum(
+          item["Gramos_Estimados"] for item in st.session_state.productos_venta
       )
-      if peso_default_sugerido <= 0:
-        peso_default_sugerido = 30.0
+      if sugerencia_gramos_totales <= 0:
+        sugerencia_gramos_totales = 30.0
 
       gramos_parciales = st.number_input(
           "Gramos gastados de este rollo",
           min_value=1.0,
-          value=peso_default_sugerido,
+          value=float(sugerencia_gramos_totales),
           step=5.0,
       )
     with col_sel3:
       st.text("")
       st.text("")
-      btn_agregar_material = st.button("➕ Añadir al pedido")
+      btn_agregar_material = st.button("➕ Añadir filamento")
 
     if btn_agregar_material:
       nombre_rollo_str = df_inv[df_inv["ID_Rollo"] == rollo_elegido][
@@ -171,53 +247,28 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
 
   # --- 2. FORMULARIO DE DATOS DE LA VENTA ---
   with st.form("form_registrar_venta"):
-    st.markdown("### 📝 2. Datos del Cliente y Cobro")
+    st.markdown("### 📝 2. Datos del Cliente y Finalizar Venta")
     c1, c2 = st.columns(2)
-
-    default_producto = ""
-    if producto_seleccionado_cat is not None:
-      default_producto = producto_seleccionado_cat.get("nombre_producto", "")
-    elif ultimo_calculo and isinstance(ultimo_calculo, dict):
-      default_producto = ultimo_calculo.get("producto", "")
-
-    default_precio = 0.0
-    if producto_seleccionado_cat is not None:
-      default_precio = float(
-          producto_seleccionado_cat.get("precio_sugerido", 0.0)
-      )
-    elif ultimo_calculo and isinstance(ultimo_calculo, dict):
-      default_precio = float(ultimo_calculo.get("precio_final", 0.0))
 
     with c1:
       cliente = st.text_input("Nombre del Cliente")
-      producto = st.text_input(
-          "Producto / Pieza vendida", value=default_producto
-      )
+
     with c2:
       gramos_acumulados_calc = sum(
           item["Gramos"] for item in st.session_state.materiales_venta
       )
-      if gramos_acumulados_calc == 0 and producto_seleccionado_cat is not None:
-        gramos_acumulados_calc = float(
-            producto_seleccionado_cat.get("peso_gramos_sugerido", 50.0)
-        )
-      elif (
-          gramos_acumulados_calc == 0
-          and ultimo_calculo
-          and isinstance(ultimo_calculo, dict)
-      ):
-        gramos_acumulados_calc = ultimo_calculo.get("gramos", 50.0)
-      elif gramos_acumulados_calc == 0:
-        gramos_acumulados_calc = 50.0
-
       st.metric(
           "Gramos Totales Acumulados", f"{gramos_acumulados_calc:,.1f} g"
       )
 
+      # El total se toma por defecto del carrito creado arriba
+      total_sugerido_carrito = sum(
+          item["Subtotal"] for item in st.session_state.productos_venta
+      )
       total_venta = st.number_input(
           "Precio Final Cobrado ($ MXN)",
           min_value=0.0,
-          value=default_precio,
+          value=float(total_sugerido_carrito),
           step=10.0,
       )
 
@@ -226,10 +277,16 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
     )
 
     if btn_guardar_venta:
-      if cliente and producto and total_venta > 0:
+      if cliente and st.session_state.productos_venta and total_venta >= 0:
         df_ventas = cargar_ventas()
         nuevo_folio = len(df_ventas) + 1
         folio_str = f"V-{nuevo_folio:03d}"
+
+        # Consolidar nombres de productos en una cadena legible para el registro histórico
+        productos_str = ", ".join([
+            f"{p['Cantidad']}x {p['Producto']}"
+            for p in st.session_state.productos_venta
+        ])
 
         if st.session_state.materiales_venta:
           desc_rollos = ", ".join([
@@ -239,38 +296,15 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
         else:
           desc_rollos = "Ninguno"
 
-        # Determinación de costos y ganancias financieros
-        costo_produccion_calc = 0.0
-        ganancia_neta_calc = 0.0
-
-        if (
-            ultimo_calculo
-            and isinstance(ultimo_calculo, dict)
-            and ultimo_calculo.get("producto") == producto
-            and ultimo_calculo.get("costo_produccion", 0.0) > 0
-        ):
-          # Si viene fresco de la calculadora
-          costo_produccion_calc = ultimo_calculo.get("costo_produccion", 0.0)
-          ganancia_neta_calc = total_venta - costo_produccion_calc
-        elif producto_seleccionado_cat is not None and producto_seleccionado_cat.get(
-            "nombre_producto"
-        ) == producto:
-          # Si se seleccionó del catálogo, estimamos el costo proporcional basándonos en el precio sugerido y un margen base razonable, o dejamos una proporción lógica
-          precio_sug = float(
-              producto_seleccionado_cat.get("precio_sugerido", total_venta)
-          )
-          # Estimación aproximada estándar si el catálogo guarda el precio sugerido (asumiendo ~40-50% de margen base guardado)
-          costo_produccion_calc = round(precio_sug * 0.5, 2)
-          ganancia_neta_calc = total_venta - costo_produccion_calc
-        else:
-          costo_produccion_calc = round(gramos_acumulados_calc * 0.5, 2)
-          ganancia_neta_calc = total_venta - costo_produccion_calc
+        # Cálculo estimado de costos y ganancias
+        costo_produccion_calc = round(gramos_acumulados_calc * 0.5, 2)
+        ganancia_neta_calc = total_venta - costo_produccion_calc
 
         datos_venta = {
             "Folio": folio_str,
             "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "Cliente": cliente,
-            "Producto": producto,
+            "Producto": productos_str,
             "Costo_Produccion": round(costo_produccion_calc, 2),
             "Precio_Venta": round(total_venta, 2),
             "Ganancia_Neta": round(ganancia_neta_calc, 2),
@@ -308,15 +342,18 @@ def mostrar_modulo_ventas(ultimo_calculo=None):
                   "Estado": nuevo_estado,
               }).eq("ID_Rollo", id_r).execute()
 
+        # Limpiar estados tras guardar con éxito
         st.session_state.materiales_venta = []
+        st.session_state.productos_venta = []
         st.success(
-            f"¡Venta {folio_str} registrada con éxito y stock descontado!"
+            f"¡Venta múltiple {folio_str} registrada con éxito y stock"
+            " descontado!"
         )
         st.rerun()
       else:
         st.error(
-            "Por favor llena el cliente, el producto, un precio mayor a 0 y"
-            " asegúrate de añadir los materiales."
+            "Por favor escribe el nombre del cliente y asegúrate de agregar"
+            " al menos un producto al carrito."
         )
 
   st.markdown("---")
